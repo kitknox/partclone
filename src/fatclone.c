@@ -436,7 +436,6 @@ void read_super_blocks(char* device, file_system_info* fs_info)
     fs_info->usedblocks  = bused;
     fs_info->superBlockUsedBlocks = fs_info->usedblocks;
     fs_info->device_size = total_sector * fs_info->block_size;
-
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Block Size:%i\n", __FILE__, fs_info->block_size);
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Total Blocks:%llu\n", __FILE__, fs_info->totalblock);
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Used Blocks:%llu\n", __FILE__, fs_info->usedblocks);
