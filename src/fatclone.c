@@ -390,6 +390,7 @@ void read_super_blocks(char* device, file_system_info* fs_info)
 {
     unsigned long long total_sector = 0;
     unsigned long long bused = 0;
+    unsigned long long actual_device_size = 0;
 
     log_mesg(2, 0, 0, fs_opt.debug, "%s: initial_image start\n", __FILE__);
     fs_open(device);
@@ -397,6 +398,34 @@ void read_super_blocks(char* device, file_system_info* fs_info)
     get_fat_type();
 
     total_sector = get_total_sector();
+
+    /// Validate filesystem parameters BEFORE expensive operations
+    actual_device_size = get_partition_size(&ret);
+
+    // Validate sector size
+    if (fat_sb.sector_size == 0 ||
+        (fat_sb.sector_size & (fat_sb.sector_size - 1)) != 0 ||
+        fat_sb.sector_size < 512 || fat_sb.sector_size > 4096) {
+        log_mesg(0, 1, 1, fs_opt.debug,
+            "%s: Invalid sector size %u (must be power of 2: 512/1024/2048/4096)\n",
+            __FILE__, fat_sb.sector_size);
+    }
+
+    // Validate claimed size against actual device size
+    if (actual_device_size > 0) {
+        unsigned long long claimed_size = total_sector * (unsigned long long)fat_sb.sector_size;
+
+        log_mesg(2, 0, 0, fs_opt.debug,
+            "%s: Claimed size: %llu, Actual size: %llu\n",
+            __FILE__, claimed_size, actual_device_size);
+
+        if (claimed_size > actual_device_size) {
+            log_mesg(0, 1, 1, fs_opt.debug,
+                "%s: FAT claims %llu sectors × %u bytes = %llu bytes, "
+                "but device is only %llu bytes. Corrupted or malicious image.\n",
+                __FILE__, total_sector, fat_sb.sector_size, claimed_size, actual_device_size);
+        }
+    }
 
     total_block = total_sector;
     bused = get_used_block();//so I need calculate by myself.
@@ -407,6 +436,7 @@ void read_super_blocks(char* device, file_system_info* fs_info)
     fs_info->usedblocks  = bused;
     fs_info->superBlockUsedBlocks = fs_info->usedblocks;
     fs_info->device_size = total_sector * fs_info->block_size;
+
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Block Size:%i\n", __FILE__, fs_info->block_size);
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Total Blocks:%llu\n", __FILE__, fs_info->totalblock);
     log_mesg(2, 0, 0, fs_opt.debug, "%s: Used Blocks:%llu\n", __FILE__, fs_info->usedblocks);
